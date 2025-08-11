@@ -1,10 +1,9 @@
 import os
 import time
-from kafka import KafkaAdminClient
+from kafka.admin import KafkaAdminClient
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import from_json, col, expr
-from pyspark.sql.types import StructType, StringType, DoubleType
-from pyspark.sql.streaming import StreamingQueryListener
+from pyspark.sql.functions import from_json, col, expr, window, avg, max, min, sum as spark_sum
+from pyspark.sql.types import StructType, StringType, DoubleType, LongType, TimestampType
 
 KAFKA_BROKER = "kafka:9092"
 KAFKA_TOPIC = "weather-data"
@@ -28,50 +27,22 @@ def wait_for_topic(bootstrap_servers, topic, timeout=60):
         print(f"Waiting for Kafka topic '{topic}' to be created...")
         time.sleep(5)
 
-wait_for_topic("kafka:9092", "weather-data", timeout=120)
+wait_for_topic(KAFKA_BROKER, KAFKA_TOPIC, timeout=120)
 
 schema = StructType() \
     .add("city", StringType()) \
     .add("temperature", DoubleType()) \
     .add("humidity", DoubleType()) \
     .add("weather", StringType()) \
-    .add("timestamp", StringType())
+    .add("timestamp", LongType())  # epoch seconds
 
 spark = SparkSession.builder \
-    .appName("WeatherStreamProcessor") \
+    .appName("WeatherStreamProcessorAdvanced") \
     .getOrCreate()
 
 spark.sparkContext.setLogLevel("WARN")
 
-class BatchLogger(StreamingQueryListener):
-    def onQueryStarted(self, event):
-        print(f"Streaming Query Started: {event.id}")
-    def onQueryProgress(self, event):
-        batch_id = event.progress.batchId
-        rows = event.progress.numInputRows
-        print(f"Batch {batch_id} processed with {rows} rows.")
-    def onQueryTerminated(self, event):
-        print(f"Streaming Query Terminated: {event.id}")
-
-spark.streams.addListener(BatchLogger())
-
-print(f"Waiting for data from Kafka topic: {KAFKA_TOPIC}")
-while True:
-    static_df = spark.read \
-        .format("kafka") \
-        .option("kafka.bootstrap.servers", KAFKA_BROKER) \
-        .option("subscribe", KAFKA_TOPIC) \
-        .option("startingOffsets", "earliest") \
-        .option("failOnDataLoss", "false") \
-        .load()
-    if static_df.count() > 0:
-        print("Data found in Kafka. Starting streaming query...")
-        break
-    else:
-        print("No data yet. Retrying in 5 seconds...")
-        time.sleep(5)
-
-df = spark.readStream \
+raw_df = spark.readStream \
     .format("kafka") \
     .option("kafka.bootstrap.servers", KAFKA_BROKER) \
     .option("subscribe", KAFKA_TOPIC) \
@@ -79,11 +50,12 @@ df = spark.readStream \
     .option("failOnDataLoss", "false") \
     .load()
 
-json_df = df.selectExpr("CAST(value AS STRING) as json_str") \
+json_df = raw_df.selectExpr("CAST(value AS STRING) as json_str") \
     .withColumn("data", from_json(col("json_str"), schema)) \
-    .select("data.*")
+    .select("data.*") \
+    .withColumn("event_time", (col("timestamp").cast("timestamp")))  # convert epoch to timestamp
 
-result_df = json_df.withColumn(
+status_df = json_df.withColumn(
     "temperature_status",
     expr("""
         CASE
@@ -94,17 +66,39 @@ result_df = json_df.withColumn(
     """)
 )
 
-console_query = result_df.writeStream \
+windowed_agg_df = status_df \
+    .withWatermark("event_time", "15 minutes") \
+    .groupBy(
+        col("city"),
+        window(col("event_time"), "10 minutes", "5 minutes")
+    ).agg(
+        avg("temperature").alias("avg_temperature"),
+        max("temperature").alias("max_temperature"),
+        min("temperature").alias("min_temperature"),
+        spark_sum(expr("CASE WHEN temperature_status = 'HOT' THEN 1 ELSE 0 END")).alias("hot_count")
+    ) \
+    .select(
+        col("city"),
+        col("window.start").alias("window_start"),
+        col("window.end").alias("window_end"),
+        "avg_temperature",
+        "max_temperature",
+        "min_temperature",
+        "hot_count"
+    )
+
+parquet_query = windowed_agg_df.writeStream \
+    .outputMode("append") \
+    .format("parquet") \
+    .option("path", OUTPUT_PATH) \
+    .option("checkpointLocation", CHECKPOINT_PATH) \
+    .partitionBy("city") \
+    .start()
+
+console_query = windowed_agg_df.writeStream \
     .outputMode("append") \
     .format("console") \
     .option("truncate", False) \
-    .start()
-
-json_query = result_df.writeStream \
-    .format("json") \
-    .option("path", OUTPUT_PATH) \
-    .option("checkpointLocation", CHECKPOINT_PATH) \
-    .outputMode("append") \
     .start()
 
 spark.streams.awaitAnyTermination()
