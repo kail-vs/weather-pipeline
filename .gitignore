@@ -1,0 +1,26 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# Docker volumes and containers (optional, usually not needed)
+docker-compose.override.yml
+
+# Environment variables file
+.env
+
+# Logs
+*.log
+
+# Output data (your generated JSON files)
+data/output/
+
+# Python virtual environments (if any)
+venv/
+.env/
+
+# VS Code settings
+.vscode/
