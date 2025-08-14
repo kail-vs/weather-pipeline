@@ -83,7 +83,7 @@ services:
     depends_on:
       - postgres
     volumes:
-      - pgadmin-data:/var/lib/pgadmin
+      - pgdata:/var/lib/pgadmin
 
 
   weather-producer:
