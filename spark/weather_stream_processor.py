@@ -5,14 +5,12 @@ from pyspark.sql.functions import from_json, col, expr, window, avg, count, roun
 from pyspark.sql.types import StructType, StringType, DoubleType, TimestampType
 from pyspark.sql.streaming import StreamingQueryListener
 
-# PostgreSQL Config from environment variables
 DB_HOST = os.getenv("DB_HOST", "postgres")
 DB_PORT = os.getenv("DB_PORT", "5432")
 DB_NAME = os.getenv("DB_NAME", "weatherdb")
 DB_USER = os.getenv("DB_USER", "weatheruser")
 DB_PASS = os.getenv("DB_PASS", "weatherpass")
 
-# Kafka Config
 KAFKA_BROKER = "kafka:9092"
 KAFKA_TOPIC = "weather-data"
 
