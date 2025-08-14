@@ -1,110 +1,123 @@
-# Weather Streaming Processor (Advanced)
+# Weather Stream Processing with Kafka, Spark, PostgreSQL, and pgAdmin
 
-A **real-time weather data processing pipeline** built with **Apache Kafka** and **Apache Spark Structured Streaming**.  
-This application consumes weather data from Kafka, performs advanced processing (cleaning, enrichment, aggregation), and writes processed results to output storage in JSON format.
+## Overview
+This project is a real-time weather data streaming pipeline built with **Apache Kafka**, **Apache Spark Structured Streaming**, and **PostgreSQL** for persistent storage.  
+The system ingests synthetic weather data, processes it in real-time with Spark, and stores both raw and aggregated results in a PostgreSQL database.  
+A **pgAdmin** web interface is included for easy database management.
 
 ---
 
 ## Features
-
-### 1. **Real-time Data Ingestion**
-- Connects to a Kafka topic (`weather-data`).
-- Reads JSON-formatted weather events containing:
-  - `city`
-  - `temperature`
-  - `humidity`
-  - `weather`
-  - `timestamp` (ISO format)
-
-### 2. **Data Parsing & Cleaning**
-- Parses JSON from Kafka messages.
-- Drops records with missing values in key fields (`city`, `temperature`, `humidity`, `timestamp`).
-- Converts `timestamp` into proper Spark `TimestampType` for time-based operations.
-
-### 3. **Data Enrichment**
-- Adds **`temperature_status`**:
-  - `HOT` if temperature > 35°C
-  - `COLD` if temperature < 10°C
-  - `MODERATE` otherwise
-- Calculates **`heat_index`** using temperature and humidity.
-
-### 4. **Windowed Aggregations**
-- Applies **event-time windowing** (`2 minutes` by default).
-- Uses **watermarking** (`2 minutes`) to handle late data.
-- Calculates per-city metrics:
-  - Average temperature
-  - Average humidity
-  - Count of readings
-
-### 5. **Batch Progress Logging**
-- Custom `StreamingQueryListener` logs:
-  - Query start events
-  - Batch progress (batch ID + rows processed)
-  - Query termination events
-
-### 6. **Output Modes**
-- **Console Output**: Real-time enriched data for debugging.
-- **File Output**:
-  - Writes aggregated results to `/tmp/output` in JSON format.
-  - Uses `foreachBatch` to skip writing empty batches (avoids empty files).
-  - Saves results without unwanted Spark metadata files.
-- **Checkpointing**:
-  - Uses `/tmp/checkpoints` for Spark checkpointing to maintain state.
+- **Real-time ingestion** of weather data from Kafka.
+- **Structured Streaming** with Spark to clean, enrich, and aggregate data.
+- **PostgreSQL integration** for storing processed results.
+- **pgAdmin 4** for visual database access and management.
+- **Docker Compose** setup for easy deployment of all services.
+- **Batch-level logging** via Spark’s StreamingQueryListener.
 
 ---
 
-## Project Structure
+## Repository Structure
 ```
-weather-stream-processor/
-│
-├── spark/
-│   ├── weather_stream_processor.py  # Main Spark Structured Streaming app
-│
-├── kafka/                           # Kafka broker & topic setup (if using Docker)
-│
-├── README.md                        # Project documentation
-└── requirements.txt                  # Python dependencies
+.
+├── configs/                      # Configuration files
+├── data/                         # Local data directory (if needed later)
+├── producer/                     # Kafka weather data producer code
+│   └── Dockerfile
+├── spark/                        # Spark streaming job code
+│   ├── weather_stream_processor.py
+│   └── Dockerfile
+├── docker-compose.yml            # Orchestration for Kafka, Spark, Postgres, pgAdmin
+├── .env                          # Environment variables (DB credentials, etc.)
+├── README.md                     # Project documentation
+└── requirements.txt              # Python dependencies for producer
 ```
+
+---
+
+## 🛠 Services Overview
+### **1. Kafka + Zookeeper**
+- Kafka broker for message streaming.
+- Zookeeper for Kafka coordination.
+
+### **2. Spark**
+- **Master node** and two **workers** for distributed streaming processing.
+- Runs the `weather_stream_processor.py` job to read Kafka, process data, and store results in PostgreSQL.
+
+### **3. PostgreSQL**
+- Stores cleaned and aggregated weather data in tables.
+
+### **4. pgAdmin**
+- Web UI to query, manage, and inspect PostgreSQL data.
 
 ---
 
 ## Configuration
-### Kafka
-Update Kafka broker and topic in the Python script if needed:
-```python
-KAFKA_BROKER = "kafka:9092"
-KAFKA_TOPIC = "weather-data"
+
+### **Environment Variables (`.env`)**
+Example:
 ```
-
-### Output & Checkpoints
-- **Output directory**: `/tmp/output`
-- **Checkpoint directory**: `/tmp/checkpoints`
-
-Make sure these directories are writable from the environment where Spark runs.
+POSTGRES_USER=weatheruser
+POSTGRES_PASSWORD=weatherpass
+POSTGRES_DB=weatherdb
+PGADMIN_DEFAULT_EMAIL=admin@admin.com
+PGADMIN_DEFAULT_PASSWORD=admin
+```
 
 ---
 
-## Running the Application
-
-1. **Start Kafka** (e.g., via Docker Compose or your local cluster)
-2. **Produce sample messages** to the Kafka topic:
-```json
-{"city": "London", "temperature": 22.5, "humidity": 55, "weather": "Clear", "timestamp": "2025-08-15T12:30:00"}
-```
-3. **Run the Spark Streaming app**:
+## Running the Project
+### Clone the repository
 ```bash
-spark-submit   --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0   spark/weather_stream_processor.py
+git clone <repo_url>
+cd <repo_name>
+```
+
+### Start services with Docker Compose
+```bash
+docker compose up -d
+```
+
+### Check logs
+```bash
+docker logs -f spark-job
 ```
 
 ---
 
-## Future Improvements
-- **Database Sink**: Write results directly to PostgreSQL or Cassandra.
-- **Alerting System**: Trigger alerts for extreme temperatures.
-- **Real-time Dashboard**: Integrate with tools like Apache Superset or Grafana.
-- **Schema Registry**: Use Confluent Schema Registry for robust message schema management.
+## Accessing the Services
+- **Kafka**: Internal connection only (`kafka:9092`)
+- **Spark Master UI**: [http://localhost:8080](http://localhost:8080)
+- **Spark Worker 1 UI**: [http://localhost:8081](http://localhost:8081)
+- **Spark Worker 2 UI**: [http://localhost:8082](http://localhost:8082)
+- **pgAdmin**: [http://localhost:5050](http://localhost:5050)
 
 ---
 
-## License
-MIT License
+## PostgreSQL Access
+
+### **From Terminal**
+```bash
+docker exec -it postgres psql -U weatheruser -d weatherdb
+```
+
+### **List Tables**
+```sql
+\dt
+```
+
+### **Query Data**
+```sql
+SELECT * FROM weather_data LIMIT 10;
+SELECT * FROM weather_aggregates LIMIT 10;
+```
+
+---
+
+## Development Notes
+- Spark job writes **only to PostgreSQL**, no filesystem storage.
+- PostgreSQL tables are created automatically by the job if they do not exist.
+- The system is designed for **append-only** streaming mode.
+
+---
+
