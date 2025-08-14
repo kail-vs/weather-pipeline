@@ -1,3 +1,5 @@
-kafka-python
+kafka-python==2.0.2
 requests
 python-dotenv
+pyspark==3.5.1
+psycopg2-binary

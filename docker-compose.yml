@@ -24,7 +24,7 @@ services:
       retries: 12
 
   spark-master:
-    image: bitnami/spark:3.4.1
+    image: bitnami/spark:3.5.1
     container_name: spark-master
     environment:
       - SPARK_MODE=master
@@ -35,7 +35,7 @@ services:
       - spark-ivy-cache:/root/.ivy2
 
   spark-worker-1:
-    image: bitnami/spark:3.4.1
+    image: bitnami/spark:3.5.1
     container_name: spark-worker-1
     environment:
       - SPARK_MODE=worker
@@ -44,12 +44,11 @@ services:
       - spark-master
     volumes:
       - spark-ivy-cache:/root/.ivy2
-      - ./data:/data
     ports:
       - "8081:8081"
 
   spark-worker-2:
-    image: bitnami/spark:3.4.1
+    image: bitnami/spark:3.5.1
     container_name: spark-worker-2
     environment:
       - SPARK_MODE=worker
@@ -58,9 +57,34 @@ services:
       - spark-master
     volumes:
       - spark-ivy-cache:/root/.ivy2
-      - ./data:/data
     ports:
       - "8082:8081"
+
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    environment:
+      POSTGRES_USER: weatheruser
+      POSTGRES_PASSWORD: weatherpass
+      POSTGRES_DB: weatherdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+  
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+
 
   weather-producer:
     build:
@@ -78,12 +102,21 @@ services:
     depends_on:
       - kafka
       - spark-master
+      - weather-producer
+      - postgres
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=weatherdb
+      - DB_USER=weatheruser
+      - DB_PASS=weatherpass
     volumes:
-      - ./data:/data
-      - ./configs:/app/configs
+      - ./configs:/configs
       - ./spark/weather_stream_processor.py:/app/weather_stream_processor.py
       - ./.env:/app/.env
       - spark-ivy-cache:/root/.ivy2
 
 volumes:
   spark-ivy-cache:
+  pgdata:
+  pgadmin-data:
