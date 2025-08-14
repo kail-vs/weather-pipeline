@@ -17,6 +17,7 @@ docker-compose.override.yml
 
 # Output data (your generated JSON files)
 data/output/
+data/checkpoints/
 
 # Python virtual environments (if any)
 venv/

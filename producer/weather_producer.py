@@ -23,7 +23,7 @@ ALL_CITIES = [c["name"] for c in city_list]
 CITIES = random.sample(ALL_CITIES, min(CITY_LIMIT, len(ALL_CITIES)))
 
 print("Producer: waiting 60s for Kafka to start...")
-time.sleep(60)
+time.sleep(20)
 
 producer = KafkaProducer(
     bootstrap_servers='kafka:9092',
