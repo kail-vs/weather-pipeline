@@ -15,8 +15,8 @@ KAFKA_TOPIC = "weather-data"
 # ====================================================
 # Output Directories (ensure they exist)
 # ====================================================
-OUTPUT_DIR = "/tmp/output"         # ← Change this if you want another folder
-CHECKPOINT_DIR = "/tmp/checkpoints"  # ← Change checkpoint location if needed
+OUTPUT_DIR = "/tmp/output"
+CHECKPOINT_DIR = "/tmp/checkpoints"
 
 os.makedirs(OUTPUT_DIR, mode=0o777, exist_ok=True)
 os.makedirs(CHECKPOINT_DIR, mode=0o777, exist_ok=True)
@@ -66,7 +66,7 @@ df = (
     .format("kafka")
     .option("kafka.bootstrap.servers", KAFKA_BROKER)
     .option("subscribe", KAFKA_TOPIC)
-    .option("startingOffsets", "latest")  # ← Change to "earliest" if you want all stored Kafka messages
+    .option("startingOffsets", "latest") 
     .option("failOnDataLoss", "false")
     .load()
 )
@@ -80,10 +80,8 @@ json_df = (
     .select("data.*")
 )
 
-# Drop rows missing critical fields
 clean_df = json_df.na.drop(subset=["city", "temperature", "humidity", "timestamp"])
 
-# Add derived columns
 enriched_df = clean_df.withColumn(
     "temperature_status",
     expr(
@@ -102,12 +100,12 @@ enriched_df = clean_df.withColumn(
 # ====================================================
 # Windowed Aggregation
 # ====================================================
-# NOTE: You can change "2 minutes" to a smaller/larger value if you want quicker/slower output.
+
 agg_df = (
     enriched_df
-    .withWatermark("timestamp", "5 seconds")  # ← Watermark delay; reduce for faster flush
+    .withWatermark("timestamp", "5 seconds")
     .groupBy(
-        window(col("timestamp"), "5 seconds"),  # ← Window size; reduce to e.g. "30 seconds" for faster output
+        window(col("timestamp"), "5 seconds"),
         col("city")
     )
     .agg(
@@ -121,7 +119,6 @@ agg_df = (
 # Output Streams
 # ====================================================
 
-# 1. Console Output — good for debugging
 console_query = (
     enriched_df.writeStream
     .outputMode("append")
@@ -130,13 +127,8 @@ console_query = (
     .start()
 )
 
-# 2. Aggregated JSON Output — skip empty batches
 def write_non_empty_batches(df, batch_id):
-    """
-    Writes non-empty microbatches to JSON.
-    Change this function if you want another format (e.g., CSV, Parquet).
-    """
-    if df.count() > 0:  # Prevent creation of empty files
+    if df.count() > 0:
         df.write.mode("append").json(OUTPUT_DIR)
 
 agg_query = (
