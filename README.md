@@ -4,7 +4,7 @@ End‑to‑end, Dockerized pipeline that ingests live weather data, processes it
 
 ---
 
-## ✨ What you get
+## Functionality
 
 - **Kafka + Spark**: Robust streaming ingestion and windowed aggregations (watermarks, tumbling windows)
 - **PostgreSQL**: Durable storage of aggregated weather metrics (`weather_agg` table)
@@ -14,7 +14,7 @@ End‑to‑end, Dockerized pipeline that ingests live weather data, processes it
 
 ---
 
-## 🧭 Architecture
+## Architecture
 
 ```
 ┌────────────────────┐        ┌─────────────┐        ┌─────────────────────┐
