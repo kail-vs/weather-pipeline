@@ -230,8 +230,9 @@ Use `localhost:5432`. Inside containers, use `postgres:5432`.
 ## Branching
 
 * `main` — earlier file-based sink iteration
+* `spark-processing` — spark integration with advance stream processing
+* `postgres-integration` — offloading output data to postgres database
 * `streamlit-dashboard` — current default branch with Postgres + dashboard
-* Keep both branches to show project evolution
 
 > To switch default branch on GitHub: **Settings → Branches → Default branch**.
 
