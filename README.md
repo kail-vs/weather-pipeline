@@ -59,8 +59,6 @@ End‑to‑end, Dockerized pipeline that ingests live weather data, processes it
 
 ````
 
-*Your repo may differ slightly; the key components above are present.*
-
 ---
 
 ## Database schema
