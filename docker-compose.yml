@@ -70,7 +70,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
   
   pgadmin:
     image: dpage/pgadmin4
@@ -115,6 +115,22 @@ services:
       - ./spark/weather_stream_processor.py:/app/weather_stream_processor.py
       - ./.env:/app/.env
       - spark-ivy-cache:/root/.ivy2
+    
+  weather-dashboard:
+    build:
+      context: .
+      dockerfile: dashboard/Dockerfile
+    ports:
+      - "8501:8501"
+    depends_on:
+      - postgres
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=weatherdb
+      - POSTGRES_USER=weatheruser
+      - POSTGRES_PASSWORD=weatherpass
+
 
 volumes:
   spark-ivy-cache:

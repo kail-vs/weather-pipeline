@@ -3,3 +3,7 @@ requests
 python-dotenv
 pyspark==3.5.1
 psycopg2-binary
+streamlit
+pandas
+plotly
+streamlit-autorefresh
