@@ -249,5 +249,3 @@ MIT — do what you like; attribution appreciated.
 
 Maintained by **Kail**. Contributions welcome!
 
-```
-```
